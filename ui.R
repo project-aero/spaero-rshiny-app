@@ -2,6 +2,17 @@ library(shiny)
 library(shinydashboard)
 #library(shinythemes)
 
+hashProxy <- function(inputoutputID) {
+  div(id=inputoutputID,class=inputoutputID,tag("div",""));
+}
+
+state_names <- gsub(" ", "_", strsplit("Alabama,Arizona,Arkansas,California,Colorado,Connecticut,Delaware,Florida,Georgia,Idaho,Illinois,Indiana,Iowa,Kansas,Kentucky,Louisiana,Maine,Maryland,Massachusetts,Michigan,Minnesota,Mississippi,Missouri,Montana,Nebraska,Nevada,New Hampshire,New Jersey,New Mexico,New York,North Carolina,North Dakota,Ohio,Oklahoma,Oregon,Pennsylvania,Rhode Island,South Carolina,South Dakota,Tennessee,Texas,Utah,Vermont,Virginia,Washington,West Virginia,Wisconsin,Wyoming", ",")[[1]])
+names(state_names) <-  gsub("_", " ", state_names)
+
+pathogen_names <-  c("Hepatitis_A", "Influenza", "Measles", "Mumps", "Pertussis", "Polio", "Rubella", "Smallpox")
+names(pathogen_names) <-  gsub("_", " ", pathogen_names)
+
+
 # Define UI for application that draws EWS for disease data
 dashboardPage( #theme = shinytheme("cerulean"),
 
@@ -30,12 +41,12 @@ dashboardPage( #theme = shinytheme("cerulean"),
   
       selectInput("selectPathogen", 
         label = "Choose pathogen",
-        choices = c("Hepatitis A", "Influenza", "Measles", "Mumps", "Pertussis", "Polio", "Rubella", "Smallpox"),
+        choices = pathogen_names,
         selected = "Polio"),
   
       selectInput("selectState", 
         label = "Choose state",
-        choices = strsplit("Alabama,Arizona,Arkansas,California,Colorado,Connecticut,Delaware,Florida,Georgia,Idaho,Illinois,Indiana,Iowa,Kansas,Kentucky,Louisiana,Maine,Maryland,Massachusetts,Michigan,Minnesota,Mississippi,Missouri,Montana,Nebraska,Nevada,New Hampshire,New Jersey,New Mexico,New York,North Carolina,North Dakota,Ohio,Oklahoma,Oregon,Pennsylvania,Rhode Island,South Carolina,South Dakota,Tennessee,Texas,Utah,Vermont,Virginia,Washington,West Virginia,Wisconsin,Wyoming", ",")[[1]],
+        choices = state_names,
         selected = "Alabama"),
       
       
@@ -62,6 +73,9 @@ dashboardPage( #theme = shinytheme("cerulean"),
     
     #Main panel, on rhs
     dashboardBody(
+      includeHTML("www/js/URL.js"),
+      hashProxy("hash"),
+
       # Show a plot of the computed EWS:
       tabItems(
 	      tabItem(tabName = "plot",

@@ -8,6 +8,7 @@ source("helper.R")
 #working_dir <- "/srv/shiny-server/emerging_app"
 working_dir <- "."
 
+url_fields_to_sync <- c("selectPathogen","selectState","selectData", "lag","bins");
 
 #------ INITIAL OPERATIONS: ------#
 
@@ -77,13 +78,15 @@ shinyServer(function(input, output) {
 #Import datafile:
 #tycho_data <- reactive({read.csv(paste("./data/",toupper(gsub( " ", "_", input$selectPathogen)) ,"_tycho.csv" ), sep=",", comment.char = "#",stringsAsFactors=FALSE)})
 
+
+#gsub( "_", " ", pathogen)
 tycho_data <- reactive({tychoImport(input$selectPathogen)})
 cdc_data <- reactive({cdcImport(input$selectPathogen)})
 
 
 
   #Number of infected individuals:
-  x <- reactive({switch(input$selectData, "CDC" = cdc_data()[toupper(gsub(" ", ".", input$selectState))][[1]], "Tycho" = tycho_data()[toupper(gsub(" ", ".", input$selectState))][[1]])
+  x <- reactive({switch(input$selectData, "CDC" = cdc_data()[toupper(gsub(" ", ".", input$selectState))][[1]], "Tycho" = tycho_data()[toupper(gsub("_", ".", input$selectState))][[1]])
     })
  t <- reactive({switch(input$selectData, "CDC" = cdc_data()$Time, "Tycho" = tycho_data()$Time)
     })
@@ -130,7 +133,7 @@ cdc_data <- reactive({cdcImport(input$selectPathogen)})
  	plot(t(),  x(), type='l', xlab="Year", ylab="Cases", col='grey', lty=1, lwd=1.5, xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), x(),input$range[[1]], input$range[[2]])  )
   	 axis(side=1,labels=F) 
   	lines(t(), ews()$'Mean', type='l',  col=col['Mean'], lty=1, lwd=2.5)
-    	title( paste(input$selectPathogen,"in",input$selectState, "(window ", input$bins, "years)"))
+    	title( paste(gsub("_", " ", input$selectPathogen),"in", gsub("_", " ",input$selectState), "(window ", input$bins, "years)"))
 	plot(t(), ews()$`Variance`, type='l',  ylab="Variance", col=col[2], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]),ylim=ewsYlim(t(), ews()$`Variance`,input$range[[1]], input$range[[2]])   )
   	axis(side=1,labels=F) 
   	plot(t(), ews()$`Index of dispersion`, type='l',  ylab="IoD", col=col[3], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ews()$`Index of dispersion`,input$range[[1]], input$range[[2]]))
@@ -166,7 +169,7 @@ cdc_data <- reactive({cdcImport(input$selectPathogen)})
     plot(t(),  x(), type='l', xlab="Year", ylab="Cases", col='grey', lty=1, lwd=1.5, xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), x(),input$range[[1]], input$range[[2]])  )
     axis(side=1,labels=F) 
     lines(t(), ews()$'Mean', type='l',  col=col['Mean'], lty=1, lwd=2.5)
-    title( paste(input$selectPathogen,"in",input$selectState, "(window ", input$bins, "years)"))
+    title( paste(gsub("_", " ", input$selectPathogen),"in", gsub("_", " ",input$selectState), "(window ", input$bins, "years)"))
     plot(t(), entropy(), type='l',  ylab="Entropy", col=col[2], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]),ylim=ewsYlim(t(),2*entropy(),input$range[[1]], input$range[[2]])   )
     axis(side=1,labels=F)
     lines(t(),gaussian_entropy(), col=col[3], lty=1, lwd=2.5)
@@ -180,6 +183,36 @@ cdc_data <- reactive({cdcImport(input$selectPathogen)})
 
   #Output selected image
   #output$selectedImage <- renderText({ "<img src=\"norad.jpg\" alt=\"Mountain View\" style=\"width:304px;height:228px;\">" })
+
+## URL hash:
+  firstTime <- TRUE
+  
+  output$hash <- reactiveText(function() {
+    
+    newHash = paste(collapse=",",
+                    Map(function(field) {
+                          paste(sep="=",
+                                field,
+                                input[[field]])
+                        },
+                        url_fields_to_sync))
+    
+    # the VERY FIRST time we pass the input hash up.
+    return(
+      if (!firstTime) {
+        newHash
+      } else {
+        if (is.null(input$hash)) {
+          NULL
+        } else {
+          firstTime<<-F;
+          isolate(input$hash)
+        }
+      }
+    )
+  })
+
+
 })
 
 

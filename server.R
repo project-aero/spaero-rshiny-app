@@ -36,7 +36,8 @@ names(col) <- names(ewsEquations)
 
 disease <- "Polio"
 #working_dir <- "/srv/shiny-server/polio"
-cdc_data <- read.csv(paste(working_dir,"/data/POLIO_cdc.csv", sep = ""), sep=",", comment.char = "#", stringsAsFactors=FALSE)
+#cdc_data <- read.csv(paste(working_dir,"/data/POLIO_cdc.csv", sep = ""), sep=",", comment.char = "#", stringsAsFactors=FALSE)
+
 tycho_data <- read.csv("./data/POLIO_tycho.csv", sep=",", comment.char = "#",stringsAsFactors=FALSE)
 
 
@@ -45,13 +46,13 @@ tycho_data <- read.csv("./data/POLIO_tycho.csv", sep=",", comment.char = "#",str
 
 
 
-names(cdc_data) <- toupper(names(cdc_data))
+#names(cdc_data) <- toupper(names(cdc_data))
 
 
 tycho_data[tycho_data=="-"]<-0
-cdc_data[cdc_data=="-"]<-0
+#cdc_data[cdc_data=="-"]<-0
 
-cdc_data$Time <- cdc_data$YEAR + cdc_data$MONTH/12.0
+#cdc_data$Time <- cdc_data$YEAR + cdc_data$MONTH/12.0
 tycho_data$Time <- tycho_data$YEAR + tycho_data$WEEK/52.0
 
 tychoImport <- function(pathogen){
@@ -61,12 +62,12 @@ tychoImport <- function(pathogen){
 	return(td)
 }
 
-cdcImport <- function(pathogen){
-  td <- read.csv(paste("./data/",toupper(gsub( " ", "_", pathogen)) ,"_cdc.csv", sep = "" ), sep=",", comment.char = "#",stringsAsFactors=FALSE)
-  td[td=="-"]<-0
-  td$Time <- td$YEAR + td$MONTH/12.0
-  return(td)
-}
+#cdcImport <- function(pathogen){
+#  td <- read.csv(paste("./data/",toupper(gsub( " ", "_", pathogen)) ,"_cdc.csv", sep = "" ), sep=",", comment.char = "#",stringsAsFactors=FALSE)
+#  td[td=="-"]<-0
+#  td$Time <- td$YEAR + td$MONTH/12.0
+#  return(td)
+#}
 
 #------ SERVER LOGIC ------#
 
@@ -81,36 +82,30 @@ shinyServer(function(input, output) {
 
 #gsub( "_", " ", pathogen)
 tycho_data <- reactive({tychoImport(input$selectPathogen)})
-cdc_data <- reactive({cdcImport(input$selectPathogen)})
+#cdc_data <- reactive({cdcImport(input$selectPathogen)})
 
 
 
   #Number of infected individuals:
-  x <- reactive({switch(input$selectData, "CDC" = cdc_data()[toupper(gsub(" ", ".", input$selectState))][[1]], "Tycho" = tycho_data()[toupper(gsub("_", ".", input$selectState))][[1]])
-    })
- t <- reactive({switch(input$selectData, "CDC" = cdc_data()$Time, "Tycho" = tycho_data()$Time)
-    })
+  x <- reactive({tycho_data()[toupper(gsub("_", ".", input$selectState))][[1]]})
+ t <- reactive({tycho_data()$Time})
 
   #Compute theoretical values of EWS from stationary theory:
  # ews_theory <- reactive({ ewsStationary( R0() )
   #  })
   
   #Compute theoretical values of EWS from finite speed theory:
-  ews_finite_theory <- reactive({ewsFinite(cdc_data()$Time)    
-  })
+  ews_finite_theory <- reactive({ewsFinite(cdc_data()$Time)})
   
   #Calculate the EWS from the timeseries data. All EWS recalculated whenever size of window is changed (input$bins).
-  ews <- reactive({ ewsAverage(t(),as.numeric(x()),  switch(input$selectData, "CDC" = 12, "Tycho" = 52)*input$bins,input$lag)
-  })
+  ews <- reactive({ ewsAverage(t(),as.numeric(x()),  52*input$bins,input$lag)})
   
   #Calculate probability distribution from timeseries:
-  probability <- reactive({ ewsProbTimeseries(as.numeric(t()),as.numeric(x()), switch(input$selectData, "CDC" = 12, "Tycho" = 52)*input$bins)
-  })
+  probability <- reactive({ewsProbTimeseries(as.numeric(t()),as.numeric(x()), 52*input$bins)})
   #calculate entropy of timeseries
-  entropy <- reactive({ ewsEntropy(probability())
-  })
+  #entropy <- reactive({ ewsEntropy(probability())})
   #Calculate Gaussian entropy of timeseries
-  gaussian_entropy <- reactive({log(2*pi*exp(1)*ews()$`Variance`)/2})
+  #gaussian_entropy <- reactive({log(2*pi*exp(1)*ews()$`Variance`)/2})
   
 	   
   
@@ -144,38 +139,38 @@ cdc_data <- reactive({cdcImport(input$selectPathogen)})
   
   
   #Plot derivative:
-  output$derivativePlot <- renderPlot({
-  	par(mfrow=c(4,1), ps = 24, cex = 1, cex.main = 1.5)
-  	par(mar=c(1,5,3,1))
-  	layout(matrix(c(1,2,3,4,5), 5,1, byrow=TRUE), heights=c(2,1,1,1))
-  	plot(t(),  x(), type='l', xlab="Year", ylab="Cases", col='grey', lty=1, lwd=1.5, xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ewsDerivative(t(),ews()$Mean),input$range[[1]], input$range[[2]]))
-  	 axis(side=1,labels=F) 
-  	lines(t(), ewsDerivative(t(),ews()$Mean), type='l',  col=col[1], lty=1, lwd=2.5)
-  	title( paste(input$selectPathogen,"in",input$selectState, "(window ", input$bins, "years)"))
-  	plot(t(), ewsDerivative(t(),ews()$`Variance`), type='l',  ylab="Var", col=col[2], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ewsDerivative(t(),ews()$`Variance`),input$range[[1]], input$range[[2]]))
-  	axis(side=1,labels=F) 
-  	plot(t(), ewsDerivative(t(),ews()$`Index of dispersion`), type='l',  ylab="IoD", col=col[3], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ewsDerivative(t(),ews()$`Index of dispersion`),input$range[[1]], input$range[[2]]))
-  	axis(side=1,labels=F) 
-  	plot(t(), ewsDerivative(t(),ews()$`Autocorrelation`), type='l',  ylab=paste("AC(",input$lag,")",sep=""), xlab="Year", col=col[4], lty=1, lwd=2.5, xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ewsDerivative(t(),ews()$`Autocorrelation`),input$range[[1]], input$range[[2]]))
-  	mtext(text='Year',side=1,line=4)
-  }) 
+  #output$derivativePlot <- renderPlot({
+  #	par(mfrow=c(4,1), ps = 24, cex = 1, cex.main = 1.5)
+  #	par(mar=c(1,5,3,1))
+  #	layout(matrix(c(1,2,3,4,5), 5,1, byrow=TRUE), heights=c(2,1,1,1))
+  #	plot(t(),  x(), type='l', xlab="Year", ylab="Cases", col='grey', lty=1, lwd=1.5, xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ewsDerivative(t(),ews()$Mean),input$range[[1]], input$range[[2]]))
+  #	 axis(side=1,labels=F) 
+  #	lines(t(), ewsDerivative(t(),ews()$Mean), type='l',  col=col[1], lty=1, lwd=2.5)
+  #	title( paste(input$selectPathogen,"in",input$selectState, "(window ", input$bins, "years)"))
+  #	plot(t(), ewsDerivative(t(),ews()$`Variance`), type='l',  ylab="Var", col=col[2], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ewsDerivative(t(),ews()$`Variance`),input$range[[1]], input$range[[2]]))
+  #	axis(side=1,labels=F) 
+  #	plot(t(), ewsDerivative(t(),ews()$`Index of dispersion`), type='l',  ylab="IoD", col=col[3], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ewsDerivative(t(),ews()$`Index of dispersion`),input$range[[1]], input$range[[2]]))
+  #	axis(side=1,labels=F) 
+  #	plot(t(), ewsDerivative(t(),ews()$`Autocorrelation`), type='l',  ylab=paste("AC(",input$lag,")",sep=""), xlab="Year", col=col[4], lty=1, lwd=2.5, xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), ewsDerivative(t(),ews()$`Autocorrelation`),input$range[[1]], input$range[[2]]))
+  #	mtext(text='Year',side=1,line=4)
+  #}) 
   
 
   #Plot entropy:
-  output$entropyPlot <- renderPlot({
-    par(mfrow=c(4,1), ps = 24, cex = 1, cex.main = 1.5)
-    par(mar=c(1,5,3,1))
-    layout(matrix(c(1,2,3,4,5), 5,1, byrow=TRUE), heights=c(2,1,1,1))
-    plot(t(),  x(), type='l', xlab="Year", ylab="Cases", col='grey', lty=1, lwd=1.5, xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), x(),input$range[[1]], input$range[[2]])  )
-    axis(side=1,labels=F) 
-    lines(t(), ews()$'Mean', type='l',  col=col['Mean'], lty=1, lwd=2.5)
-    title( paste(gsub("_", " ", input$selectPathogen),"in", gsub("_", " ",input$selectState), "(window ", input$bins, "years)"))
-    plot(t(), entropy(), type='l',  ylab="Entropy", col=col[2], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]),ylim=ewsYlim(t(),2*entropy(),input$range[[1]], input$range[[2]])   )
-    axis(side=1,labels=F)
-    lines(t(),gaussian_entropy(), col=col[3], lty=1, lwd=2.5)
-    plot(t(),entropy()-gaussian_entropy(), type='l',  ylab=paste("Ent-logVar",sep=""), xlab="Year", col=col[4], lty=1, lwd=2.5, xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(),entropy() - gaussian_entropy(),input$range[[1]], input$range[[2]]) )
-    mtext(text='Year',side=1,line=4)
-  }) 
+  #output$entropyPlot <- renderPlot({
+  #  par(mfrow=c(4,1), ps = 24, cex = 1, cex.main = 1.5)
+  #  par(mar=c(1,5,3,1))
+  #  layout(matrix(c(1,2,3,4,5), 5,1, byrow=TRUE), heights=c(2,1,1,1))
+  #  plot(t(),  x(), type='l', xlab="Year", ylab="Cases", col='grey', lty=1, lwd=1.5, xaxt='n', xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(), x(),input$range[[1]], input$range[[2]])  )
+  #  axis(side=1,labels=F) 
+  #  lines(t(), ews()$'Mean', type='l',  col=col['Mean'], lty=1, lwd=2.5)
+  #  title( paste(gsub("_", " ", input$selectPathogen),"in", gsub("_", " ",input$selectState), "(window ", input$bins, "years)"))
+  #  plot(t(), entropy(), type='l',  ylab="Entropy", col=col[2], lty=1, lwd=2.5,xaxt='n', xlim=c(input$range[[1]],input$range[[2]]),ylim=ewsYlim(t(),2*entropy(),input$range[[1]], input$range[[2]])   )
+  #  axis(side=1,labels=F)
+  #  lines(t(),gaussian_entropy(), col=col[3], lty=1, lwd=2.5)
+  #  plot(t(),entropy()-gaussian_entropy(), type='l',  ylab=paste("Ent-logVar",sep=""), xlab="Year", col=col[4], lty=1, lwd=2.5, xlim=c(input$range[[1]],input$range[[2]]), ylim=ewsYlim(t(),entropy() - gaussian_entropy(),input$range[[1]], input$range[[2]]) )
+  #  mtext(text='Year',side=1,line=4)
+  #}) 
   
   
   output$selectedInterval <- renderText({ewsYlim(t(),entropy() - gaussian_entropy(),input$range[[1]], input$range[[2]]) })

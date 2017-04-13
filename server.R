@@ -11,23 +11,11 @@ url_fields_to_sync <- c("selectPathogen","selectState", "lag","bins");
 
 #------ INITIAL OPERATIONS: ------#
 
-
-
-#Read in time series data:
-
-#Compute theoretical values of EWS from stationary theory:
-R0_theory <- (2.0/1000.0)*0:1000
-ews_theory <-ewsStationary(R0_theory)
-
-#Equations for stationary theoretical EWS:
-ewsEquations <- c("\\(\\mu \\)", "\\(\\sigma^2 = \\frac{\\zeta}{(1-R_0)^2}\\)","\\(\\sigma/\\mu = \\sqrt(\\zeta)\\)","\\(\\sigma^2/\\mu = 1/(1-R_0)\\)")
-names(ewsEquations) <- c("Mean", "Variance", "Coefficient of variation", "Index of dispersion")
-
 #colours used in figures:
 col <- c("#2a76dd", "#1B9E77", "#D95F02", "#7570B3")
-names(col) <- names(ewsEquations)
+names(col) <-c("Mean", "Variance", "Coefficient of variation", "Index of dispersion")
 
-
+names(col) <- c("Mean", "Variance", "Coefficient of variation", "Index of dispersion")
 disease <- "Polio"
 tycho_data <- read.csv("./data/POLIO_tycho.csv", sep=",", comment.char = "#",stringsAsFactors=FALSE)
 tycho_data[tycho_data=="-"]<-0
@@ -48,16 +36,12 @@ tychoImport <- function(pathogen){
 # Define server logic required to draw figure etc.
 shinyServer(function(input, output) {
 
-
-
-#Import tycho data
-tycho_data <- reactive({tychoImport(input$selectPathogen)})
-
-
+  #Import tycho data
+  tycho_data <- reactive({tychoImport(input$selectPathogen)})
 
   #Number of infected individuals:
   x <- reactive({tycho_data()[toupper(gsub("_", ".", input$selectState))][[1]]})
- t <- reactive({tycho_data()$Time})
+  t <- reactive({tycho_data()$Time})
 
   #Compute theoretical values of EWS from finite speed theory:
   ews_finite_theory <- reactive({ewsFinite(cdc_data()$Time)})
@@ -67,19 +51,6 @@ tycho_data <- reactive({tychoImport(input$selectPathogen)})
   
   #Calculate probability distribution from timeseries:
   probability <- reactive({ewsProbTimeseries(as.numeric(t()),as.numeric(x()), 52*input$bins)})
-
-	   
-  
-  
-  
-  #Switch to select displayed EWS (unused now!): 
-   selectedEWS <- reactive({switch(input$selectEWS, 
-        "Mean" = list( ews()$Mean, ews_theory$Mean, ews_finite_theory()$Mean ),
-        "Variance" = list(ews()$Variance, ews_theory$Variance,ews_finite_theory()$Variance),
-        "Coefficient of variation" = list(ews()$`Coefficient of variation`, ews_theory$`Coefficient of variation`, ews_finite_theory()$`Coefficient of variation`),
-        "Index of dispersion" = list(ews()$`Index of dispersion`, ews_theory$`Index of dispersion`, ews_finite_theory()$`Index of dispersion`)
-        )
-	})
 
  #Plot figure:
   output$distPlot <- renderPlot({

@@ -43,15 +43,9 @@ shinyServer(function(input, output) {
   x <- reactive({tycho_data()[toupper(gsub("_", ".", input$selectState))][[1]]})
   t <- reactive({tycho_data()$Time})
 
-  #Compute theoretical values of EWS from finite speed theory:
-  ews_finite_theory <- reactive({ewsFinite(cdc_data()$Time)})
-  
   #Calculate the EWS from the timeseries data. All EWS recalculated whenever size of window is changed (input$bins).
   ews <- reactive({ ewsAverage(t(),as.numeric(x()),  52*input$bins,input$lag)})
   
-  #Calculate probability distribution from timeseries:
-  probability <- reactive({ewsProbTimeseries(as.numeric(t()),as.numeric(x()), 52*input$bins)})
-
  #Plot figure:
   output$distPlot <- renderPlot({
   	par(mfrow=c(4,1), ps = 24, cex = 1, cex.main = 1.5)
